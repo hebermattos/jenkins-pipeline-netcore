@@ -1,0 +1,52 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('SCM') {
+            steps {
+                git branch: 'dev', url: 'https://github.com/hebermattos/igti-api-net.git'
+            }
+        }
+        stage('Restore') {
+            steps {
+                bat 'dotnet restore'
+            }
+        }
+        stage('Build & Sonar') {
+            steps {
+                withSonarQubeEnv('default') {
+                    bat "dotnet sonarscanner begin /k:igti-api-net"
+                    bat 'dotnet build'
+                    bat "dotnet sonarscanner end"
+                }
+            }
+        }
+        stage('Test') { 
+            steps {
+                bat 'dotnet test'
+            }
+        }
+        stage('Publish') { 
+            steps {
+                bat 'dotnet publish ./API/ -c release  '
+            }
+        }
+        stage('Audit') { 
+            steps {
+                bat 'devaudit.exe netcore ci -n -f c:\\binarios\\igti-api-net-dev\\igti-api-net.deps.json'
+            }
+        }
+        stage ('Deploy') {
+            steps {
+                ftpPublisher alwaysPublishFromMaster: true,
+                         continueOnError: false,
+                         failOnError: true,
+                         masterNodeName: '',
+                         paramPublish: null,
+                         publishers: [[configName: 'dev', transfers: [[asciiMode: false, cleanRemote: true, excludes: '', flatten: false, makeEmptyDirs: false,
+                         noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '/', remoteDirectorySDF: false, removePrefix: 'API/bin/Release/net5.0/publish', 
+                         sourceFiles: 'API/bin/Release/net5.0/publish/**/*']], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false]]
+          }
+        }
+    }
+}
